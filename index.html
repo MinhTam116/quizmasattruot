@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thử Thách Lực Ma Sát</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --correct: #00b894;
+            --wrong: #d63031;
+            --text: #2d3436;
+            --bg: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-card {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Thanh tiến độ */
+        .progress-bar {
+            position: absolute;
+            top: 0; left: 0;
+            height: 6px;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        h2 { margin-top: 10px; color: var(--primary); }
+
+        .question-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 20px 0;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-option {
+            background: #f1f2f6;
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            position: relative;
+        }
+
+        .btn-option:hover {
+            background: #e1e2e6;
+            transform: translateY(-2px);
+        }
+
+        .btn-option.correct {
+            background: var(--correct);
+            color: white;
+            border-color: var(--correct);
+        }
+
+        .btn-option.wrong {
+            background: var(--wrong);
+            color: white;
+            border-color: var(--wrong);
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Màn hình kết quả */
+        .result-screen {
+            display: none;
+        }
+        
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 20px auto;
+        }
+
+        .btn-reset {
+            background: var(--text);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        /* Hiệu ứng Feedback */
+        .feedback-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-card" id="game-ui">
+        <div class="progress-bar" id="progress"></div>
+        
+        <div id="quiz-content">
+            <h2>Câu hỏi <span id="q-current">1</span>/<span id="q-total">5</span></h2>
+            <div class="question-text" id="question">Loading...</div>
+            <div class="options-grid" id="options">
+                </div>
+        </div>
+
+        <div class="result-screen" id="result">
+            <h2>HOÀN THÀNH! 🎉</h2>
+            <div class="score-circle">
+                <span id="final-score">0</span>/5
+            </div>
+            <p id="feedback-msg">Bạn đã làm rất tốt!</p>
+            <button class="btn-reset" onclick="restartGame()">Làm lại</button>
+        </div>
+    </div>
+
+    <script>
+        // DỮ LIỆU CÂU HỎI (Đã nhập sẵn 5 câu của bạn)
+        const questions = [
+            {
+                q: "Độ lớn của lực ma sát trượt KHÔNG phụ thuộc vào yếu tố nào?",
+                a: [
+                    "A. Vật liệu của hai mặt tiếp xúc",
+                    "B. Tình trạng mặt tiếp xúc (khô, ướt)",
+                    "C. Độ lớn của áp lực",
+                    "D. Diện tích của mặt tiếp xúc"
+                ],
+                correct: 3 // Index 3 là đáp án D (Mảng bắt đầu từ 0)
+            },
+            {
+                q: "Hệ số ma sát trượt (μt) phụ thuộc vào yếu tố nào?",
+                a: [
+                    "A. Tốc độ của vật",
+                    "B. Vật liệu và tình trạng mặt tiếp xúc",
+                    "C. Khối lượng của vật",
+                    "D. Góc nghiêng của mặt phẳng"
+                ],
+                correct: 1 // Đáp án B
+            },
+            {
+                q: "Chọn phát biểu SAI về lực ma sát nghỉ:",
+                a: [
+                    "A. Cân bằng với ngoại lực song song mặt tiếp xúc",
+                    "B. Có giá trị cực đại lớn hơn lực ma sát trượt",
+                    "C. Cản trở xu hướng chuyển động",
+                    "D. Luôn ngược chiều với chiều chuyển động"
+                ],
+                correct: 3 // Đáp án D
+            },
+            {
+                q: "Khi tăng áp lực lên gấp đôi thì hệ số ma sát trượt sẽ:",
+                a: [
+                    "A. Tăng gấp đôi",
+                    "B. Giảm một nửa",
+                    "C. Không đổi",
+                    "D. Tăng gấp 4 lần"
+                ],
+                correct: 2 // Đáp án C
+            },
+            {
+                q: "Lực ma sát trượt xuất hiện khi nào?",
+                a: [
+                    "A. Vật bị biến dạng đàn hồi",
+                    "B. Vật trượt trên bề mặt của vật khác",
+                    "C. Vật nằm yên trên mặt phẳng nghiêng",
+                    "D. Vật chuyển động tròn đều"
+                ],
+                correct: 1 // Đáp án B
+            }
+        ];
+
+        let currentIdx = 0;
+        let score = 0;
+        let canClick = true;
+
+        const ui = {
+            qCurrent: document.getElementById('q-current'),
+            qTotal: document.getElementById('q-total'),
+            question: document.getElementById('question'),
+            options: document.getElementById('options'),
+            progress: document.getElementById('progress'),
+            quizContent: document.getElementById('quiz-content'),
+            resultScreen: document.getElementById('result'),
+            finalScore: document.getElementById('final-score'),
+            msg: document.getElementById('feedback-msg')
+        };
+
+        function initGame() {
+            currentIdx = 0;
+            score = 0;
+            ui.qTotal.innerText = questions.length;
+            ui.quizContent.style.display = 'block';
+            ui.resultScreen.style.display = 'none';
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            canClick = true;
+            const data = questions[currentIdx];
+            
+            ui.qCurrent.innerText = currentIdx + 1;
+            ui.question.innerText = data.q;
+            
+            // Update thanh tiến độ
+            const percent = ((currentIdx) / questions.length) * 100;
+            ui.progress.style.width = percent + '%';
+
+            // Tạo nút đáp án
+            ui.options.innerHTML = '';
+            data.a.forEach((optText, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'btn-option';
+                btn.innerText = optText;
+                btn.onclick = () => checkAnswer(btn, index);
+                
+                // Icon feedback ẩn
+                const icon = document.createElement('span');
+                icon.className = 'feedback-icon';
+                btn.appendChild(icon);
+                
+                ui.options.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(btn, index) {
+            if(!canClick) return;
+            canClick = false;
+
+            const data = questions[currentIdx];
+            const isCorrect = (index === data.correct);
+
+            if(isCorrect) {
+                btn.classList.add('correct');
+                btn.querySelector('.feedback-icon').innerText = '✅';
+                btn.querySelector('.feedback-icon').style.display = 'inline';
+                score++;
+            } else {
+                btn.classList.add('wrong');
+                btn.querySelector('.feedback-icon').innerText = '❌';
+                btn.querySelector('.feedback-icon').style.display = 'inline';
+                
+                // Hiển thị đáp án đúng để học sinh biết
+                const allBtns = ui.options.children;
+                allBtns[data.correct].classList.add('correct');
+            }
+
+            // Chuyển câu sau 1.5s
+            setTimeout(() => {
+                currentIdx++;
+                if(currentIdx < questions.length) {
+                    loadQuestion();
+                } else {
+                    showResult();
+                }
+            }, 1500);
+        }
+
+        function showResult() {
+            ui.quizContent.style.display = 'none';
+            ui.resultScreen.style.display = 'block';
+            ui.finalScore.innerText = score;
+            ui.progress.style.width = '100%';
+
+            if(score === 5) ui.msg.innerText = "Xuất sắc! Bạn là trùm Vật lý!";
+            else if(score >= 3) ui.msg.innerText = "Khá lắm! Cố gắng thêm chút nữa.";
+            else ui.msg.innerText = "Cần ôn lại bài nhé!";
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        // Bắt đầu
+        initGame();
+
+    </script>
+</body>
+</html>
